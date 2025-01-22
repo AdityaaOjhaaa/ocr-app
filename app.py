@@ -88,8 +88,14 @@ if 'processed_text' not in st.session_state:
     st.session_state.processed_text = None
 
 # Initialize EasyOCR
+
+
+
 @st.cache_resource
-reader = easyocr.Reader(['en'], verbose=False)
+def load_reader():
+    return easyocr.Reader(['en'], verbose=False)
+
+reader = load_reader()
 
 # App header
 st.markdown("<h1>Smart OCR Scanner</h1>", unsafe_allow_html=True)
