@@ -2,110 +2,73 @@ import streamlit as st
 import easyocr
 from PIL import Image
 import numpy as np
+import os
+import torch
 
-# Page configuration
+# Ensure CUDA is not required
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
+torch.backends.cudnn.enabled = False
+
+# Cache the EasyOCR reader initialization
+@st.cache_resource(show_spinner=False)
+def load_ocr():
+    try:
+        return easyocr.Reader(['en'], gpu=False)
+    except Exception as e:
+        st.error(f"Failed to initialize EasyOCR: {str(e)}")
+        return None
+
+# Basic page config
 st.set_page_config(
-    page_title="Smart OCR Scanner",
-    page_icon="📱",
-    layout="wide"
+    page_title="OCR Scanner",
+    page_icon="📝",
+    initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for better styling
-st.markdown("""
-    <style>
-    .css-1v0mbdj.e115fcil1 {
-        max-width: 100%;
-    }
-    .stButton>button {
-        width: 100%;
-        margin-top: 10px;
-        margin-bottom: 10px;
-        background-color: #ff4b4b;
-        color: white;
-    }
-    .result-container {
-        padding: 20px;
-        border-radius: 10px;
-        background-color: #f0f2f6;
-        margin-top: 20px;
-    }
-    .upload-text {
-        text-align: center;
-        padding: 20px;
-        border: 2px dashed #cccccc;
-        border-radius: 10px;
-        margin: 20px 0;
-    }
-    @media (max-width: 768px) {
-        .responsive-text {
-            font-size: 14px;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
+# Initialize the reader
+reader = load_ocr()
 
-# Initialize session states
-if 'processed_text' not in st.session_state:
-    st.session_state.processed_text = None
-if 'reader' not in st.session_state:
-    st.session_state.reader = easyocr.Reader(['en'], verbose=False)
+if reader is None:
+    st.error("Could not initialize the OCR system. Please try again later.")
+    st.stop()
 
-# App header
-st.title("📱 Smart OCR Scanner")
-st.markdown("Extract text from images instantly!", unsafe_allow_html=True)
+# Main app
+st.title("📝 OCR Scanner")
+st.write("Upload an image to extract text")
 
 # File uploader
-st.markdown("<div class='upload-text'>", unsafe_allow_html=True)
-uploaded_file = st.file_uploader(
-    "Drop your image here or click to browse",
-    type=['png', 'jpg', 'jpeg']
-)
-st.markdown("</div>", unsafe_allow_html=True)
-
-if uploaded_file:
-    # Create two columns for image and text
-    col1, col2 = st.columns([1, 1])
+try:
+    uploaded_file = st.file_uploader("Choose an image file", type=['png', 'jpg', 'jpeg'])
     
-    with col1:
-        # Display uploaded image
+    if uploaded_file:
+        # Display image
         image = Image.open(uploaded_file)
-        st.image(image, width=400, caption="Uploaded Image")
-    
-    with col2:
-        # Extract text button and processing
-        if st.button("Extract Text 🔍", key="extract"):
-            with st.spinner("Processing... Please wait"):
-                try:
-                    # Convert image to numpy array and process
-                    image_array = np.array(image)
-                    result = st.session_state.reader.readtext(image_array, detail=0)
-                    extracted_text = "\n".join(result)
-                    st.session_state.processed_text = extracted_text
-                except Exception as e:
-                    st.error(f"Error processing image: {str(e)}")
-                    st.info("Please try uploading a different image or check if the image contains clear text.")
+        st.image(image, caption="Uploaded Image", width=400)
         
-        # Display results if text has been processed
-        if st.session_state.processed_text:
-            st.markdown("<div class='result-container'>", unsafe_allow_html=True)
-            st.text_area(
-                "Extracted Text",
-                st.session_state.processed_text,
-                height=200
-            )
-            if st.button("Copy Text 📋", key="copy"):
-                st.toast("Text copied to clipboard!", icon="✅")
-            st.markdown("</div>", unsafe_allow_html=True)
+        # Extract text button
+        if st.button("📋 Extract Text"):
+            with st.spinner("Processing image... This might take a few moments."):
+                try:
+                    # Convert image to numpy array
+                    image_array = np.array(image)
+                    
+                    # Perform OCR
+                    results = reader.readtext(image_array, detail=0)
+                    
+                    # Display results
+                    if results:
+                        st.success("Text extracted successfully!")
+                        st.text_area(
+                            "Extracted Text:",
+                            value="\n".join(results),
+                            height=200
+                        )
+                    else:
+                        st.warning("No text was detected in the image.")
+                        
+                except Exception as e:
+                    st.error("Error processing image. Please try with a different image.")
+                    st.info("Make sure the image contains clear, readable text.")
 
-# Footer
-st.markdown("""
-    <div style='position: fixed; bottom: 0; width: 100%; text-align: center; padding: 10px; background-color: rgba(255, 255, 255, 0.9);'>
-        <p class='responsive-text'>Made with ❤️ by Your Name</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Error handling for mobile devices
-if st.session_state.get('error_occurred'):
-    st.error("If you're having issues on mobile, please try refreshing the page or clearing your browser cache.")
-    if st.button("Clear Error"):
-        st.session_state.error_occurred = False
+except Exception as e:
+    st.error("An error occurred with the application. Please try refreshing the page.")
