@@ -86,6 +86,8 @@ st.markdown("""
 # Initialize session state
 if 'processed_text' not in st.session_state:
     st.session_state.processed_text = None
+if 'reader' not in st.session_state:
+    st.session_state.reader = easyocr.Reader(['en'], verbose=False)
 
 # Initialize EasyOCR
 
