@@ -89,14 +89,7 @@ if 'processed_text' not in st.session_state:
 
 # Initialize EasyOCR
 @st.cache_resource
-def load_ocr():
-    try:
-        reader = easyocr.Reader(['en'], model_storage_directory='./models', download_enabled=True)
-        return reader
-    except Exception as e:
-        st.error(f"Error initializing EasyOCR: {str(e)}")
-        st.error("Please try refreshing the page")
-        return None
+reader = easyocr.Reader(['en'], verbose=False)
 
 # App header
 st.markdown("<h1>Smart OCR Scanner</h1>", unsafe_allow_html=True)
